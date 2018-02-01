@@ -133,7 +133,7 @@ client.on("message", message => {
             getUsernameAndStats(message.author.username, steamName)
                 .then(function(data) {
                     message.reply(`
-                        Overall rating for \`${data.steamName}\`: " ${data.overallRating}
+                        Overall rating for \`${data.steamName}\`: ${data.overallRating}
 
                         More stats here: https://pubg.op.gg/user/${data.steamName}
                         `);
