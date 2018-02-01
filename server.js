@@ -107,9 +107,10 @@ client.on('ready', () => {
 client.on('message', message => {
     if(message.content.indexOf('!rank') === 0){
         var steamName = message.content.replace('!rank', '').trim();
-        if(steamName.length > 0 || localStorage.getItem(message.author.username)){
+        var userData = JSON.parse(localStorage.getItem(message.author.id));
+        if(steamName.length > 0 || (userData && userData.steamName)){
             if(steamName.length === 0){
-                steamName = localStorage.getItem(message.author.username);
+                steamName = JSON.parse(localStorage.getItem(message.author.id)).steamName;
             }
             getUsernameAndStats(message.author.username, steamName).then(function(data){
                 message.reply('Overall rating for `' + data.steamName + '`: ' + data.overallRating);
@@ -117,18 +118,18 @@ client.on('message', message => {
                 message.reply(message);
             });
         }else{
-            message.reply('Please specify Steam name. Example: `!rank shroud`');
+            message.reply('Please specify Steam name or link your own to use it as a default. Example: `!rank shroud`');
         }
     }else if(message.content.indexOf('!link') === 0){
         var steamName = message.content.replace('!link', '').trim();
-        localStorage.setItem(message.author.username, steamName);
+        localStorage.setItem(message.author.id, JSON.stringify({steamName: steamName, discordName: message.author.username}));
         message.reply('Successfully linked Discord user `' + message.author.username + '` with Steam user `' + steamName + '`');
     } else if(message.content.indexOf('!leaders') === 0) {
         if(localStorage.length > 0){
             var promises = [];
             for (var i = 0, len = localStorage.length; i < len; ++i) {
-                console.log(localStorage.key(i), localStorage.getItem(localStorage.key(i)));
-                promises.push(getUsernameAndStats(localStorage.key(i), localStorage.getItem(localStorage.key(i))));
+                var userData = JSON.parse(localStorage.getItem(localStorage.key(i)));
+                promises.push(getUsernameAndStats(userData.discordName, userData.steamName));
             }
             q.all(promises).then(function(results){
                 results.sort(function(a, b){
