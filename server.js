@@ -3,6 +3,8 @@ const client = new Discord.Client();
 const rp = require('request-promise');
 const cheerio = require('cheerio');
 const q = require('q');
+var LocalStorage = require('node-localstorage').LocalStorage;
+var localStorage = new LocalStorage('./localStorage');
 
 var getSteamId = function(steamName){
     var deferred = q.defer();
@@ -65,13 +67,13 @@ var getStats = function(steamId){
         ratings = ratings.filter(function(r){
             return r !== undefined;
         });
-        var overAllRating = 'No ratings yet in any gametypes for this season...';
+        var overallRating = 'No ratings yet in any gametypes for this season...';
         if(ratings.length > 0){
-            overAllRating = ratings.reduce(function(total, r){
+            overallRating = ratings.reduce(function(total, r){
                 return total + parseInt(r, 10);
             }) / ratings.length;
         }
-        deferred.resolve(overAllRating)
+        deferred.resolve(overallRating)
     }).catch(function(err){
         console.log(err);
         deferred.reject(err)
@@ -80,25 +82,67 @@ var getStats = function(steamId){
     return deferred.promise;
 };
 
-client.on('ready', (a,b,c) => {
-    console.log('I am ready!');
+var getUsernameAndStats = function(discordName, steamName){
+    var deferred = q.defer();
+    getSteamId(steamName).then(function(steamId){
+        getStats(steamId).then(function(overallRating){
+            deferred.resolve({
+                discordName: discordName,
+                steamName: steamName,
+                overallRating: overallRating
+            });
+        }).catch(function(data){
+            deferred.reject('Failed to get rating for `' + steamName + '`...');
+        });
+    }).catch(function(err){
+        deferred.reject('Failed to get Steam Id...');
+    });
+    return deferred.promise;
+};
+
+client.on('ready', () => {
+    console.log('Connected!');
 });
 
 client.on('message', message => {
     if(message.content.indexOf('!rank') === 0){
         var steamName = message.content.replace('!rank', '').trim();
-        if(steamName.length > 0){
-            getSteamId(steamName).then(function(steamId){
-                getStats(steamId).then(function(data){
-                    message.reply('Rating for `' + steamName + '`: ' + data);
-                }).catch(function(data){
-                    message.reply('Failed to get rating for `' + steamName + '`...');
-                });
-            }).catch(function(err){
-                message.reply('Failed to get Steam Id...');
+        if(steamName.length > 0 || localStorage.getItem(message.author.username)){
+            if(steamName.length === 0){
+                steamName = localStorage.getItem(message.author.username);
+            }
+            getUsernameAndStats(message.author.username, steamName).then(function(data){
+                message.reply('Overall rating for `' + data.steamName + '`: ' + data.overallRating);
+            }).catch(function(message){
+                message.reply(message);
             });
         }else{
             message.reply('Please specify Steam name. Example: `!rank shroud`');
+        }
+    }else if(message.content.indexOf('!link') === 0){
+        var steamName = message.content.replace('!link', '').trim();
+        localStorage.setItem(message.author.username, steamName);
+        message.reply('Successfully linked Discord user `' + message.author.username + '` with Steam user `' + steamName + '`');
+    } else if(message.content.indexOf('!leaders') === 0) {
+        if(localStorage.length > 0){
+            var promises = [];
+            for (var i = 0, len = localStorage.length; i < len; ++i) {
+                console.log(localStorage.key(i), localStorage.getItem(localStorage.key(i)));
+                promises.push(getUsernameAndStats(localStorage.key(i), localStorage.getItem(localStorage.key(i))));
+            }
+            q.all(promises).then(function(results){
+                results.sort(function(a, b){
+                    return b.overallRating < a.overallRating;
+                });
+                results.forEach(function(r, i){
+                    message.reply((i + 1) + '. ' + r.discordName + ' (' + r.steamName + ') - ' + r.overallRating);
+                });
+            }).catch(function(err){
+                console.log(err);
+                deferred.reject('Failed to get leaders...');
+            });
+        }else{
+            message.reply('No Steam accounts linked yet...use the `!link` command to link yours. Example: `!link shroud`');
         }
     }
 });
