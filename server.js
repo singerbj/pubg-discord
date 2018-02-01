@@ -197,7 +197,7 @@ client.on("message", message => {
         if (isNaN(sides) || sides < 0) {
             message.reply("Please specify a valid number for the `!dice` command...");
         } else {
-            message.reply(rand(0, sides));
+            message.reply(rand(0, sides + 1));
         }
     } else if (message.content.indexOf("!help") === 0) {
         message.reply(`
@@ -207,6 +207,10 @@ client.on("message", message => {
                 Ranks all the players in the discord server by overall player rating.
             \`!link {steam username}\`
                 Links a Steam name to a Discord user for use with the !rank and !leaders commands.
+            \`!coin\`
+                Flips a coin.
+            \`!dice {number of sides on die}\`
+                Rolls a die based on the number of sides that you specify
             \`!help\`
                 Displays the commands and what they do.
             `);
