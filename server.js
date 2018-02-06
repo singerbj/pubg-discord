@@ -6,42 +6,42 @@ const q = require("q");
 var LocalStorage = require("node-localstorage").LocalStorage;
 var localStorage = new LocalStorage("./localStorage");
 
-var rand = function (min, max) {
+var rand = function(min, max) {
     min = Math.ceil(min);
     max = Math.floor(max);
     return Math.floor(Math.random() * (max - min)) + min;
 };
 
-var getSteamId = function (steamName) {
+var getSteamId = function(steamName) {
     var deferred = q.defer();
     const options = {
         uri: "https://pubg.op.gg/user/" + steamName,
-        transform: function (body) {
+        transform: function(body) {
             return cheerio.load(body);
         }
     };
     rp(options)
-        .then(function ($) {
+        .then(function($) {
             deferred.resolve($("#userNickname").data("user_id"));
         })
-        .catch(function (err) {
+        .catch(function(err) {
             console.log(err);
             deferred.reject(err);
         });
     return deferred.promise;
 };
 
-var getStat = function (uri) {
+var getStat = function(uri) {
     var deferred = q.defer();
     const options = {
         uri: uri
     };
     rp(options)
-        .then(function (data) {
+        .then(function(data) {
             data = JSON.parse(data);
             deferred.resolve(data.stats.rating);
         })
-        .catch(function (err) {
+        .catch(function(err) {
             if (err.statusCode === 404) {
                 deferred.resolve();
             } else {
@@ -52,7 +52,7 @@ var getStat = function (uri) {
     return deferred.promise;
 };
 
-var getStats = function (steamId) {
+var getStats = function(steamId) {
     var deferred = q.defer();
     var d = new Date();
     var year = d.getUTCFullYear().toString();
@@ -64,31 +64,31 @@ var getStats = function (steamId) {
     var modes = ["fpp", "tpp"];
     var uris = [];
     var baseUri = "https://pubg.op.gg/api/users/" + steamId + "/ranked-stats?season=" + year + "-" + month + "&server=na";
-    queueSizes.forEach(function (q) {
-        modes.forEach(function (m) {
+    queueSizes.forEach(function(q) {
+        modes.forEach(function(m) {
             uris.push(baseUri + "&queue_size=" + q + "&mode=" + m);
         });
     });
 
-    var promises = uris.map(function (uri) {
+    var promises = uris.map(function(uri) {
         return getStat(uri);
     });
     q
         .all(promises)
-        .then(function (ratings) {
-            ratings = ratings.filter(function (r) {
+        .then(function(ratings) {
+            ratings = ratings.filter(function(r) {
                 return r !== undefined;
             });
             var overallRating = "No ratings yet in any gametypes for this season...";
             if (ratings.length > 0) {
                 overallRating =
-                    ratings.reduce(function (total, r) {
+                    ratings.reduce(function(total, r) {
                         return total + parseInt(r, 10);
                     }) / ratings.length;
             }
             deferred.resolve(overallRating);
         })
-        .catch(function (err) {
+        .catch(function(err) {
             console.log(err);
             deferred.reject(err);
         });
@@ -96,23 +96,23 @@ var getStats = function (steamId) {
     return deferred.promise;
 };
 
-var getUsernameAndStats = function (discordName, steamName) {
+var getUsernameAndStats = function(discordName, steamName) {
     var deferred = q.defer();
     getSteamId(steamName)
-        .then(function (steamId) {
+        .then(function(steamId) {
             getStats(steamId)
-                .then(function (overallRating) {
+                .then(function(overallRating) {
                     deferred.resolve({
                         discordName: discordName,
                         steamName: steamName,
                         overallRating: overallRating
                     });
                 })
-                .catch(function (data) {
+                .catch(function(data) {
                     deferred.reject("Failed to get rating for `" + steamName + "`...");
                 });
         })
-        .catch(function (err) {
+        .catch(function(err) {
             deferred.reject("Failed to get Steam Id...");
         });
     return deferred.promise;
@@ -131,14 +131,14 @@ client.on("message", message => {
                 steamName = JSON.parse(localStorage.getItem(message.author.id)).steamName;
             }
             getUsernameAndStats(message.author.username, steamName)
-                .then(function (data) {
+                .then(function(data) {
                     message.reply(`
                         Overall rating for \`${data.steamName}\`: ${data.overallRating}
 
                         More stats here: https://pubg.op.gg/user/${data.steamName}
                         `);
                 })
-                .catch(function (message) {
+                .catch(function(message) {
                     message.reply(message);
                 });
         } else {
@@ -157,7 +157,7 @@ client.on("message", message => {
     } else if (message.content.indexOf("!leaders") === 0) {
         if (message.guild) {
             if (localStorage.length > 0) {
-                var memberIds = message.guild.members.map(function (m) {
+                var memberIds = message.guild.members.map(function(m) {
                     return m.id;
                 });
                 var promises = [];
@@ -170,15 +170,15 @@ client.on("message", message => {
                 if (promises.length > 0) {
                     q
                         .all(promises)
-                        .then(function (results) {
-                            results = results.sort(function (a, b) {
-                                return b.overallRating < a.overallRating;
+                        .then(function(results) {
+                            results = results.sort(function(a, b) {
+                                return b.overallRating - a.overallRating;
                             });
-                            results.forEach(function (r, i) {
+                            results.forEach(function(r, i) {
                                 message.reply(i + 1 + ". " + r.discordName + " (" + r.steamName + ") - " + r.overallRating);
                             });
                         })
-                        .catch(function (err) {
+                        .catch(function(err) {
                             message.reply("Failed to get leaders...");
                         });
                 } else {
