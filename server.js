@@ -12,10 +12,10 @@ var rand = function(min, max) {
     return Math.floor(Math.random() * (max - min)) + min;
 };
 
-var getSteamId = function(steamName) {
+var getPUBGId = function(pubgName) {
     var deferred = q.defer();
     const options = {
-        uri: "https://pubg.op.gg/user/" + steamName,
+        uri: "https://pubg.op.gg/user/" + pubgName,
         transform: function(body) {
             return cheerio.load(body);
         }
@@ -52,7 +52,7 @@ var getStat = function(uri) {
     return deferred.promise;
 };
 
-var getStats = function(steamId) {
+var getStats = function(pubgId) {
     var deferred = q.defer();
     var d = new Date();
     var year = d.getUTCFullYear().toString();
@@ -63,7 +63,7 @@ var getStats = function(steamId) {
     var queueSizes = ["1", "2", "4"];
     var modes = ["fpp", "tpp"];
     var uris = [];
-    var baseUri = "https://pubg.op.gg/api/users/" + steamId + "/ranked-stats?season=" + year + "-" + month + "&server=na";
+    var baseUri = "https://pubg.op.gg/api/users/" + pubgId + "/ranked-stats?season=" + year + "-" + month + "&server=na";
     queueSizes.forEach(function(q) {
         modes.forEach(function(m) {
             uris.push(baseUri + "&queue_size=" + q + "&mode=" + m);
@@ -96,24 +96,24 @@ var getStats = function(steamId) {
     return deferred.promise;
 };
 
-var getUsernameAndStats = function(discordName, steamName) {
+var getUsernameAndStats = function(discordName, pubgName) {
     var deferred = q.defer();
-    getSteamId(steamName)
-        .then(function(steamId) {
-            getStats(steamId)
+    getPUBGId(pubgName)
+        .then(function(pubgId) {
+            getStats(pubgId)
                 .then(function(overallRating) {
                     deferred.resolve({
                         discordName: discordName,
-                        steamName: steamName,
+                        pubgName: pubgName,
                         overallRating: overallRating
                     });
                 })
                 .catch(function(data) {
-                    deferred.reject("Failed to get rating for `" + steamName + "`...");
+                    deferred.reject("Failed to get rating for `" + pubgName + "`...");
                 });
         })
         .catch(function(err) {
-            deferred.reject("Failed to get Steam Id...");
+            deferred.reject("Failed to get PUBG Id...");
         });
     return deferred.promise;
 };
@@ -124,36 +124,36 @@ client.on("ready", () => {
 
 client.on("message", message => {
     if (message.content.indexOf("!rank") === 0) {
-        var steamName = message.content.replace("!rank", "").trim();
+        var pubgName = message.content.replace("!rank", "").trim();
         var userData = JSON.parse(localStorage.getItem(message.author.id));
-        if (steamName.length > 0 || (userData && userData.steamName)) {
-            if (steamName.length === 0) {
-                steamName = JSON.parse(localStorage.getItem(message.author.id)).steamName;
+        if (pubgName.length > 0 || (userData && userData.pubgName)) {
+            if (pubgName.length === 0) {
+                pubgName = JSON.parse(localStorage.getItem(message.author.id)).pubgName;
             }
-            getUsernameAndStats(message.author.username, steamName)
+            getUsernameAndStats(message.author.username, pubgName)
                 .then(function(data) {
                     message.reply(`
-                        Overall rating for \`${data.steamName}\`: ${data.overallRating}
+                        Overall rating for \`${data.pubgName}\`: ${data.overallRating}
 
-                        More stats here: https://pubg.op.gg/user/${data.steamName}
+                        More stats here: https://pubg.op.gg/user/${data.pubgName}
                         `);
                 })
                 .catch(function(message) {
                     message.reply(message);
                 });
         } else {
-            message.reply("Please specify Steam name or link your own to use it as a default. Example: `!rank shroud`");
+            message.reply("Please specify PUBG name or link your own to use it as a default. Example: `!rank shroud`");
         }
     } else if (message.content.indexOf("!link") === 0) {
-        var steamName = message.content.replace("!link", "").trim();
+        var pubgName = message.content.replace("!link", "").trim();
         localStorage.setItem(
             message.author.id,
             JSON.stringify({
-                steamName: steamName,
+                pubgName: pubgName,
                 discordName: message.author.username
             })
         );
-        message.reply("Successfully linked Discord user `" + message.author.username + "` with Steam user `" + steamName + "`");
+        message.reply("Successfully linked Discord user `" + message.author.username + "` with PUBG user `" + pubgName + "`");
     } else if (message.content.indexOf("!leaders") === 0) {
         if (message.guild) {
             if (localStorage.length > 0) {
@@ -164,7 +164,7 @@ client.on("message", message => {
                 for (var i = 0, len = localStorage.length; i < len; ++i) {
                     if (memberIds.indexOf(localStorage.key(i)) > -1) {
                         var userData = JSON.parse(localStorage.getItem(localStorage.key(i)));
-                        promises.push(getUsernameAndStats(userData.discordName, userData.steamName));
+                        promises.push(getUsernameAndStats(userData.discordName, userData.pubgName));
                     }
                 }
                 if (promises.length > 0) {
@@ -174,18 +174,20 @@ client.on("message", message => {
                             results = results.sort(function(a, b) {
                                 return b.overallRating - a.overallRating;
                             });
+                            var string = "";
                             results.forEach(function(r, i) {
-                                message.reply(i + 1 + ". " + r.discordName + " (" + r.steamName + ") - " + r.overallRating);
+                                string = i + 1 + ". " + r.discordName + " (" + r.pubgName + ") - " + r.overallRating + "\n";
                             });
+                            message.reply(string);
                         })
                         .catch(function(err) {
                             message.reply("Failed to get leaders...");
                         });
                 } else {
-                    message.reply("No Steam accounts linked yet...use the `!link` command to link yours. Example: `!link shroud`");
+                    message.reply("No PUBG accounts linked yet...use the `!link` command to link yours. Example: `!link shroud`");
                 }
             } else {
-                message.reply("No Steam accounts linked yet...use the `!link` command to link yours. Example: `!link shroud`");
+                message.reply("No PUBG accounts linked yet...use the `!link` command to link yours. Example: `!link shroud`");
             }
         } else {
             message.reply("This command only works if run in a server channel.");
@@ -204,11 +206,11 @@ client.on("message", message => {
     } else if (message.content.indexOf("!help") === 0) {
         message.reply(`
             \`!rank {username}\`
-                Gets the overall player rating for a user with the specified Steam name, or the user's linked account by default.
+                Gets the overall player rating for a user with the specified PUBG name, or the user's linked account by default.
             \`!leaders\`
                 Ranks all the players in the discord server by overall player rating.
-            \`!link {steam username}\`
-                Links a Steam name to a Discord user for use with the !rank and !leaders commands.
+            \`!link {pubg username}\`
+                Links a PUBG name to a Discord user for use with the !rank and !leaders commands.
             \`!coin\`
                 Flips a coin.
             \`!dice {number of sides on die}\`
