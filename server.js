@@ -176,7 +176,7 @@ client.on("message", message => {
                             });
                             var string = "";
                             results.forEach(function(r, i) {
-                                string = i + 1 + ". " + r.discordName + " (" + r.pubgName + ") - " + r.overallRating + "\n";
+                                string += i + 1 + ". " + r.discordName + " (" + r.pubgName + ") - " + r.overallRating + "\n";
                             });
                             message.reply(string);
                         })
