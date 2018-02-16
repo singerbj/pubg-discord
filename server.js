@@ -81,10 +81,10 @@ var getStats = function(pubgId) {
             });
             var overallRating = "No ratings yet in any gametypes for this season...";
             if (ratings.length > 0) {
-                overallRating =
-                    ratings.reduce(function(total, r) {
-                        return total + parseInt(r, 10);
-                    }) / ratings.length;
+                overallRating = ratings.sort().reverse()[0];
+                // ratings.reduce(function(total, r) {
+                //     return total + parseInt(r, 10);
+                // }) / ratings.length;
             }
             deferred.resolve(overallRating);
         })
@@ -174,7 +174,7 @@ client.on("message", message => {
                             results = results.sort(function(a, b) {
                                 return b.overallRating - a.overallRating;
                             });
-                            var string = "";
+                            var string = "\n";
                             results.forEach(function(r, i) {
                                 string += i + 1 + ". " + r.discordName + " (" + r.pubgName + ") - " + r.overallRating + "\n";
                             });
@@ -205,8 +205,8 @@ client.on("message", message => {
         }
     } else if (message.content.indexOf("!help") === 0) {
         message.reply(`
-            \`!rank {username}\`
-                Gets the overall player rating for a user with the specified PUBG name, or the user's linked account by default.
+            \`!rank {PUBG}\`
+                Gets the best rating for the user's linked account, or for a player with the specified PUBG name.
             \`!leaders\`
                 Ranks all the players in the discord server by overall player rating.
             \`!link {pubg username}\`
